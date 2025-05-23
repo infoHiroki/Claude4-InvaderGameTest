@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>リッチ・スペースインベーダー</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0a0a2e 0%, #16213e 30%, #1a237e 70%, #3f51b5 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Orbitron', monospace;
+            color: #00ff00;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        .game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 0, 0.5),
+                inset 0 0 20px rgba(0, 255, 0, 0.1);
+            position: relative;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        
+        canvas {
+            border: 2px solid #00ff00;
+            background: radial-gradient(ellipse at center, #000022 0%, #000011 70%, #000000 100%);
+            display: block;
+            margin: 5px auto;
+            box-shadow: 
+                0 0 25px rgba(0, 255, 0, 0.3),
+                inset 0 0 15px rgba(0, 100, 200, 0.2);
+            max-width: 100%;
+        }
+        
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+            font-weight: 700;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        @media (min-width: 768px) {
+            .hud {
+                font-size: 16px;
+            }
+        }
+        
+        .score, .lives, .level, .wave {
+            text-shadow: 0 0 10px currentColor;
+            padding: 3px 6px;
+            border: 1px solid currentColor;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.5);
+            flex: 1;
+            min-width: 60px;
+        }
+        
+        .score { color: #00ff00; }
+        .lives { color: #ff4444; }
+        .level { color: #ffff00; }
+        .wave { color: #ff00ff; }
+        
+        .controls {
+            margin: 10px;
+            font-size: 10px;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+        
+        @media (min-width: 768px) {
+            .controls {
+                font-size: 12px;
+            }
+        }
+        
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            justify-content: center;
+            gap: 20px;
+            padding: 0 20px;
+        }
+        
+        @media (max-width: 767px) {
+            .mobile-controls {
+                display: flex;
+            }
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            border: 2px solid #00ff00;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            user-select: none;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+            transition: all 0.1s;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(45deg, #00cc00, #009900);
+        }
+        
+        .dpad {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .fire-btn {
+            background: linear-gradient(45deg, #ff4444, #cc0000) !important;
+            border-color: #ff4444 !important;
+            color: #fff !important;
+        }
+        
+        .fire-btn:active {
+            background: linear-gradient(45deg, #cc0000, #990000) !important;
+        }
+        
+        .game-over, .pause-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 20px;
+            border: 3px solid #ff0000;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 0 0 15px currentColor;
+            display: none;
+            z-index: 1000;
+            max-width: 90vw;
+        }
+        
+        @media (min-width: 768px) {
+            .game-over, .pause-menu {
+                font-size: 24px;
+                padding: 30px;
+            }
+        }
+        
+        .pause-menu {
+            border-color: #ffff00;
+            color: #ffff00;
+        }
+        
+        .game-over h2, .pause-menu h2 {
+            margin-top: 0;
+            font-size: 24px;
+            font-weight: 900;
+        }
+        
+        @media (min-width: 768px) {
+            .game-over h2, .pause-menu h2 {
+                font-size: 32px;
+            }
+        }
+        
+        button {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            touch-action: manipulation;
+        }
+        
+        @media (min-width: 768px) {
+            button {
+                padding: 12px 24px;
+                font-size: 16px;
+                margin: 10px 5px;
+            }
+        }
+        
+        button:hover, button:active {
+            background: linear-gradient(45deg, #00cc00, #009900);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .powerup-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ff00ff;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        @media (min-width: 768px) {
+            .powerup-indicator {
+                font-size: 14px;
+            }
+        }
+        
+        .fullscreen-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .blinking {
+            animation: pulse 0.5s infinite;
+        }
+        
+        /* 縦画面用の調整 */
+        @media (orientation: portrait) and (max-width: 767px) {
+            .game-container {
+                padding: 5px;
+            }
+            
+            canvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶</button>
+        
+        <div class="hud">
+            <div class="score">スコア: <span id="score">0</span></div>
+            <div class="lives">♥ <span id="lives">3</span></div>
+            <div class="level">Lv.<span id="level">1</span></div>
+            <div class="wave">W.<span id="wave">1</span></div>
+        </div>
+        
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+        
+        <div class="controls">
+            PC: ← → 移動 | スペース: 射撃 | P: ポーズ | R: リスタート<br>
+            Mobile: 下部のボタンで操作
+        </div>
+        
+        <div class="mobile-controls">
+            <div class="dpad">
+                <div class="control-btn" id="leftBtn">←</div>
+                <div class="control-btn" id="rightBtn">→</div>
+            </div>
+            <div class="control-btn fire-btn" id="fireBtn">🔫</div>
+            <div class="control-btn" id="pauseBtn">⏸</div>
+        </div>
+        
+        <div id="gameOver" class="game-over">
+            <h2>ゲームオーバー</h2>
+            <p>最終スコア: <span id="finalScore">0</span></p>
+            <p>到達レベル: <span id="finalLevel">1</span></p>
+            <button onclick="restartGame()">もう一度プレイ</button>
+        </div>
+        
+        <div id="pauseMenu" class="pause-menu">
+            <h2>ポーズ</h2>
+            <p>ゲームが一時停止中です</p>
+            <button onclick="togglePause()">再開</button>
+            <button onclick="restartGame()">リスタート</button>
+        </div>
+        
+        <div class="powerup-indicator" id="powerupIndicator"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // レスポンシブキャンバス設定
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const containerWidth = container.clientWidth - 20;
+            const containerHeight = window.innerHeight - 200;
+            
+            const aspectRatio = 900 / 600;
+            let canvasWidth = Math.min(containerWidth, 900);
+            let canvasHeight = canvasWidth / aspectRatio;
+            
+            if (canvasHeight > containerHeight) {
+                canvasHeight = containerHeight;
+                canvasWidth = canvasHeight * aspectRatio;
+            }
+            
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+            
+            // スケール比を保存（座標変換用）
+            gameState.scaleX = canvasWidth / canvas.width;
+            gameState.scaleY = canvasHeight / canvas.height;
+        }
+        
+        // UI要素
+        const scoreElement = document.getElementById('score');
+        const livesElement = document.getElementById('lives');
+        const levelElement = document.getElementById('level');
+        const waveElement = document.getElementById('wave');
+        const gameOverElement = document.getElementById('gameOver');
+        const pauseMenuElement = document.getElementById('pauseMenu');
+        const finalScoreElement = document.getElementById('finalScore');
+        const finalLevelElement = document.getElementById('finalLevel');
+        const powerupIndicatorElement = document.getElementById('powerupIndicator');
+
+        // モバイルコントロール
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const fireBtn = document.getElementById('fireBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        // オーディオコンテキスト
+        let audioCtx;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.log('Audio not supported');
+                }
+            }
+        }
+        
+        function playSound(frequency, duration, type = 'square', volume = 0.1) {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = type;
+                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.log('Sound play failed');
+            }
+        }
+
+        // ゲーム状態
+        let gameState = {
+            score: 0,
+            lives: 3,
+            level: 1,
+            wave: 1,
+            gameOver: false,
+            paused: false,
+            invaderSpeed: 1,
+            invaderDirection: 1,
+            lastShot: 0,
+            powerup: null,
+            powerupTime: 0,
+            scaleX: 1,
+            scaleY: 1,
+            animationId: null
+        };
+
+        // プレイヤー
+        let player = {
+            x: 0,
+            y: 0,
+            width: 60,
+            height: 40,
+            speed: 6,
+            fireRate: 200,
+            invulnerable: 0
+        };
+
+        // ゲームオブジェクト配列
+        let bullets = [];
+        let invaderBullets = [];
+        let invaders = [];
+        let particles = [];
+        let powerups = [];
+        let shields = [];
+        let stars = [];
+        let ufo = null;
+        let keys = {};
+        let touches = {};
+
+        // 星背景初期化
+        function initStars() {
+            stars.length = 0; // 配列を安全にクリア
+            for (let i = 0; i < 150; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: Math.random() * 3 + 0.5,
+                    brightness: Math.random(),
+                    size: Math.random() * 2 + 0.5
+                });
+            }
+        }
+
+        // プレイヤー初期化
+        function initPlayer() {
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - 80;
+            player.invulnerable = 0;
+        }
+
+        // インベーダー初期化
+        function initInvaders() {
+            invaders.length = 0; // 配列を安全にクリア
+            const rows = Math.min(5 + Math.floor(gameState.level / 3), 8);
+            const cols = Math.min(10 + Math.floor(gameState.level / 5), 12);
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const invaderType = row < 2 ? 'small' : row < 4 ? 'medium' : 'large';
+                    invaders.push({
+                        x: col * 70 + 60,
+                        y: row * 50 + 60,
+                        width: 45,
+                        height: 35,
+                        alive: true,
+                        type: invaderType,
+                        animFrame: Math.floor(Math.random() * 2),
+                        lastShot: 0
+                    });
+                }
+            }
+        }
+
+        // シールド初期化
+        function initShields() {
+            shields.length = 0; // 配列を安全にクリア
+            for (let i = 0; i < 4; i++) {
+                const shield = [];
+                const startX = 150 + i * 150;
+                const startY = canvas.height - 200;
+                
+                const pattern = [
+                    [1,1,1,1,1,1,1,1],
+                    [1,1,1,1,1,1,1,1],
+                    [1,1,1,1,1,1,1,1],
+                    [1,1,1,0,0,1,1,1],
+                    [1,1,0,0,0,0,1,1],
+                    [1,0,0,0,0,0,0,1]
+                ];
+                
+                for (let row = 0; row < pattern.length; row++) {
+                    for (let col = 0; col < pattern[row].length; col++) {
+                        if (pattern[row][col]) {
+                            shield.push({
+                                x: startX + col * 8,
+                                y: startY + row * 8,
+                                width: 8,
+                                height: 8,
+                                destroyed: false
+                            });
+                        }
+                    }
+                }
+                shields.push(shield);
+            }
+        }
+
+        // パーティクル作成
+        function createParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    color: color,
+                    life: 1.0,
+                    decay: 0.02 + Math.random() * 0.02,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        // UFO作成
+        function createUFO() {
+            if (!ufo && Math.random() < 0.001) {
+                ufo = {
+                    x: -100,
+                    y: 30,
+                    width: 80,
+                    height: 30,
+                    speed: 2,
+                    points: 500,
+                    alive: true
+                };
+            }
+        }
+
+        // パワーアップ作成
+        function createPowerup(x, y) {
+            if (Math.random() < 0.15) {
+                const types = ['rapid', 'shield', 'laser', 'spread'];
+                powerups.push({
+                    x: x,
+                    y: y,
+                    width: 30,
+                    height: 30,
+                    type: types[Math.floor(Math.random() * types.length)],
+                    speed: 2,
+                    pulse: 0
+                });
+            }
+        }
+
+        // 描画関数群
+        function drawStars() {
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(star => {
+                ctx.save();
+                ctx.globalAlpha = star.brightness;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+                ctx.restore();
+            });
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            
+            if (player.invulnerable > 0) {
+                ctx.globalAlpha = Math.sin(Date.now() * 0.02) * 0.5 + 0.5;
+            }
+            
+            // プレイヤー本体
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // 詳細デザイン
+            ctx.fillStyle = '#00cc00';
+            ctx.fillRect(player.x + 25, player.y - 8, 10, 8);
+            ctx.fillRect(player.x + 5, player.y + 8, 50, 24);
+            
+            // エンジンエフェクト
+            ctx.fillStyle = '#0080ff';
+            ctx.fillRect(player.x + 15, player.y + 35, 8, 6);
+            ctx.fillRect(player.x + 37, player.y + 35, 8, 6);
+            
+            ctx.restore();
+        }
+
+        function drawInvaders() {
+            const time = Date.now() * 0.001;
+            
+            invaders.forEach(invader => {
+                if (!invader.alive) return;
+                
+                ctx.save();
+                
+                const animOffset = Math.sin(time * 4 + invader.x * 0.01) * 2;
+                
+                let color;
+                switch (invader.type) {
+                    case 'small': color = '#ff00ff'; break;
+                    case 'medium': color = '#ffff00'; break;
+                    case 'large': color = '#ff4444'; break;
+                }
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(invader.x, invader.y + animOffset, invader.width, invader.height);
+                
+                // 目
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(invader.x + 10, invader.y + 10 + animOffset, 8, 8);
+                ctx.fillRect(invader.x + 27, invader.y + 10 + animOffset, 8, 8);
+                
+                // 触手（大型のみ）
+                if (invader.type === 'large') {
+                    ctx.fillStyle = color;
+                    for (let i = 0; i < 4; i++) {
+                        const tentacleY = invader.y + invader.height + animOffset + Math.sin(time * 3 + i) * 3;
+                        ctx.fillRect(invader.x + 8 + i * 8, tentacleY, 3, 8);
+                    }
+                }
+                
+                ctx.restore();
+            });
+        }
+
+        function drawUFO() {
+            if (!ufo || !ufo.alive) return;
+            
+            ctx.save();
+            const pulse = Math.sin(Date.now() * 0.01) * 0.2 + 0.8;
+            ctx.globalAlpha = pulse;
+            
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillRect(ufo.x, ufo.y, ufo.width, ufo.height);
+            
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 5; i++) {
+                ctx.fillRect(ufo.x + 10 + i * 12, ufo.y + 25, 4, 4);
+            }
+            
+            ctx.restore();
+        }
+
+        function drawBullets() {
+            // プレイヤーの弾
+            bullets.forEach(bullet => {
+                ctx.fillStyle = bullet.type === 'laser' ? '#ff0000' : '#00ff00';
+                if (bullet.type === 'laser') {
+                    ctx.fillRect(bullet.x - 2, bullet.y, 8, bullet.height);
+                } else {
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                }
+                
+                // 弾の軌跡
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(bullet.x, bullet.y + bullet.height, bullet.width, 10);
+                ctx.restore();
+            });
+            
+            // インベーダーの弾
+            ctx.fillStyle = '#ff4444';
+            invaderBullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                // 軌跡
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(bullet.x, bullet.y - 8, bullet.width, 8);
+                ctx.restore();
+            });
+        }
+
+        function drawShields() {
+            ctx.fillStyle = '#00ff00';
+            shields.forEach(shield => {
+                shield.forEach(block => {
+                    if (!block.destroyed) {
+                        ctx.fillRect(block.x, block.y, block.width, block.height);
+                    }
+                });
+            });
+        }
+
+        function drawPowerups() {
+            powerups.forEach(powerup => {
+                const pulse = Math.sin(Date.now() * 0.01 + powerup.pulse) * 0.3 + 0.7;
+                ctx.save();
+                ctx.globalAlpha = pulse;
+                
+                let color;
+                switch (powerup.type) {
+                    case 'rapid': color = '#ff0000'; break;
+                    case 'shield': color = '#0080ff'; break;
+                    case 'laser': color = '#ff00ff'; break;
+                    case 'spread': color = '#ffff00'; break;
+                }
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(powerup.x, powerup.y, powerup.width, powerup.height);
+                
+                // アイコン描画
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                const icons = { rapid: '💥', shield: '🛡️', laser: '⚡', spread: '🎯' };
+                ctx.fillText(icons[powerup.type] || '?', powerup.x + 15, powerup.y + 20);
+                
+                ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            particles.forEach(particle => {
+                ctx.save();
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(particle.x - particle.size/2, particle.y - particle.size/2, particle.size, particle.size);
+                ctx.restore();
+            });
+        }
+
+        function drawHUD() {
+            scoreElement.textContent = gameState.score.toLocaleString();
+            livesElement.textContent = gameState.lives;
+            levelElement.textContent = gameState.level;
+            waveElement.textContent = gameState.wave;
+            
+            if (gameState.powerup && gameState.powerupTime > 0) {
+                const timeLeft = Math.ceil(gameState.powerupTime / 60);
+                powerupIndicatorElement.textContent = `${gameState.powerup.toUpperCase()} (${timeLeft}s)`;
+                powerupIndicatorElement.style.display = 'block';
+            } else {
+                powerupIndicatorElement.style.display = 'none';
+            }
+        }
+
+        // 更新関数群
+        function updateStars() {
+            stars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+        }
+
+        function updatePlayer() {
+            const isMovingLeft = keys['ArrowLeft'] || touches.left;
+            const isMovingRight = keys['ArrowRight'] || touches.right;
+            
+            if (isMovingLeft && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (isMovingRight && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+            
+            if (player.invulnerable > 0) {
+                player.invulnerable--;
+            }
+            
+            // 射撃
+            const shouldFire = keys['Space'] || touches.fire;
+            if (shouldFire && Date.now() - gameState.lastShot > player.fireRate) {
+                shoot();
+                gameState.lastShot = Date.now();
+            }
+        }
+
+        function shoot() {
+            initAudio();
+            playSound(800, 0.1, 'square', 0.05);
+            
+            if (gameState.powerup === 'spread') {
+                for (let i = -1; i <= 1; i++) {
+                    bullets.push({
+                        x: player.x + player.width/2 - 2 + i * 10,
+                        y: player.y,
+                        width: 4,
+                        height: 15,
+                        speed: 10,
+                        vx: i * 2,
+                        type: 'normal'
+                    });
+                }
+            } else if (gameState.powerup === 'laser') {
+                bullets.push({
+                    x: player.x + player.width/2 - 4,
+                    y: player.y,
+                    width: 8,
+                    height: canvas.height,
+                    speed: 0,
+                    vx: 0,
+                    type: 'laser',
+                    life: 10
+                });
+            } else {
+                bullets.push({
+                    x: player.x + player.width/2 - 2,
+                    y: player.y,
+                    width: 4,
+                    height: 15,
+                    speed: 12,
+                    vx: 0,
+                    type: 'normal'
+                });
+            }
+        }
+
+        function updateBullets() {
+            // プレイヤーの弾を更新（後ろから処理）
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                if (!bullet) continue;
+                
+                bullet.y -= bullet.speed || 0;
+                bullet.x += bullet.vx || 0;
+                
+                if (bullet.type === 'laser') {
+                    bullet.life = (bullet.life || 10) - 1;
+                    if (bullet.life <= 0) {
+                        bullets.splice(i, 1);
+                    }
+                } else if (bullet.y < 0 || bullet.x < 0 || bullet.x > canvas.width) {
+                    bullets.splice(i, 1);
+                }
+            }
+            
+            // インベーダーの弾を更新
+            for (let i = invaderBullets.length - 1; i >= 0; i--) {
+                const bullet = invaderBullets[i];
+                if (!bullet) continue;
+                
+                bullet.y += bullet.speed || 4;
+                if (bullet.y > canvas.height) {
+                    invaderBullets.splice(i, 1);
+                }
+            }
+        }
+
+        function updateInvaders() {
+            let shouldMoveDown = false;
+            
+            // 境界チェック
+            invaders.forEach(invader => {
+                if (invader && invader.alive) {
+                    if ((invader.x <= 0 && gameState.invaderDirection < 0) || 
+                        (invader.x >= canvas.width - invader.width && gameState.invaderDirection > 0)) {
+                        shouldMoveDown = true;
+                    }
+                }
+            });
+            
+            // 移動処理
+            invaders.forEach(invader => {
+                if (invader && invader.alive) {
+                    if (shouldMoveDown) {
+                        invader.y += 30;
+                    } else {
+                        invader.x += gameState.invaderDirection * gameState.invaderSpeed;
+                    }
+                }
+            });
+            
+            if (shouldMoveDown) {
+                gameState.invaderDirection *= -1;
+                gameState.invaderSpeed += 0.2;
+            }
+            
+            // インベーダーの射撃
+            if (Math.random() < 0.012 + gameState.level * 0.003) {
+                const aliveInvaders = invaders.filter(inv => inv && inv.alive);
+                if (aliveInvaders.length > 0) {
+                    const shooter = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
+                    if (shooter) {
+                        invaderBullets.push({
+                            x: shooter.x + shooter.width / 2 - 2,
+                            y: shooter.y + shooter.height,
+                            width: 4,
+                            height: 12,
+                            speed: 3 + gameState.level * 0.5
+                        });
+                    }
+                }
+            }
+        }
+
+        function updateUFO() {
+            if (ufo && ufo.alive) {
+                ufo.x += ufo.speed;
+                if (ufo.x > canvas.width + 100) {
+                    ufo = null;
+                }
+            }
+        }
+
+        function updatePowerups() {
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const powerup = powerups[i];
+                if (!powerup) continue;
+                
+                powerup.y += powerup.speed;
+                powerup.pulse += 0.1;
+                
+                if (powerup.y > canvas.height) {
+                    powerups.splice(i, 1);
+                }
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                if (!particle) continue;
+                
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= particle.decay;
+                particle.vy += 0.2;
+                
+                if (particle.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function updatePowerupTimer() {
+            if (gameState.powerupTime > 0) {
+                gameState.powerupTime--;
+                if (gameState.powerupTime <= 0) {
+                    gameState.powerup = null;
+                    player.fireRate = 200;
+                }
+            }
+        }
+
+        // 当たり判定（より安全に）
+        function isColliding(obj1, obj2) {
+            if (!obj1 || !obj2) return false;
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+
+        function checkCollisions() {
+            // プレイヤーの弾とインベーダー
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                if (!bullet) continue;
+                
+                let bulletRemoved = false;
+                
+                for (let j = invaders.length - 1; j >= 0; j--) {
+                    const invader = invaders[j];
+                    if (!invader || !invader.alive) continue;
+                    
+                    if (isColliding(bullet, invader)) {
+                        invader.alive = false;
+                        if (bullet.type !== 'laser') {
+                            bullets.splice(i, 1);
+                            bulletRemoved = true;
+                        }
+                        
+                        // エフェクトとスコア
+                        createParticles(invader.x + invader.width/2, invader.y + invader.height/2, 
+                                      invader.type === 'small' ? '#ff00ff' : 
+                                      invader.type === 'medium' ? '#ffff00' : '#ff4444', 12);
+                        
+                        const points = invader.type === 'small' ? 30 : 
+                                     invader.type === 'medium' ? 20 : 10;
+                        gameState.score += points * gameState.level;
+                        
+                        createPowerup(invader.x, invader.y);
+                        
+                        initAudio();
+                        playSound(200 + Math.random() * 100, 0.2, 'sawtooth', 0.03);
+                        
+                        if (bulletRemoved) break;
+                    }
+                }
+            }
+            
+            // UFOとの当たり判定
+            if (ufo && ufo.alive) {
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const bullet = bullets[i];
+                    if (!bullet) continue;
+                    
+                    if (isColliding(bullet, ufo)) {
+                        ufo.alive = false;
+                        if (bullet.type !== 'laser') {
+                            bullets.splice(i, 1);
+                        }
+                        gameState.score += ufo.points;
+                        createParticles(ufo.x + ufo.width/2, ufo.y + ufo.height/2, '#ff00ff', 20);
+                        
+                        initAudio();
+                        playSound(400, 0.5, 'sine', 0.05);
+                        
+                        ufo = null;
+                        break;
+                    }
+                }
+            }
+            
+            // インベーダーの弾とプレイヤー
+            if (player.invulnerable === 0) {
+                for (let i = invaderBullets.length - 1; i >= 0; i--) {
+                    const bullet = invaderBullets[i];
+                    if (!bullet) continue;
+                    
+                    if (isColliding(bullet, player)) {
+                        invaderBullets.splice(i, 1);
+                        loseLife();
+                        break;
+                    }
+                }
+            }
+            
+            // プレイヤーとパワーアップ
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const powerup = powerups[i];
+                if (!powerup) continue;
+                
+                if (isColliding(powerup, player)) {
+                    powerups.splice(i, 1);
+                    applyPowerup(powerup.type);
+                    
+                    initAudio();
+                    playSound(600, 0.3, 'sine', 0.08);
+                }
+            }
+            
+            checkShieldCollisions();
+        }
+
+        function checkShieldCollisions() {
+            // プレイヤーの弾とシールド
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                if (!bullet) continue;
+                
+                let hit = false;
+                
+                shields.forEach(shield => {
+                    if (!shield) return;
+                    shield.forEach(block => {
+                        if (!block || block.destroyed) return;
+                        if (isColliding(bullet, block)) {
+                            block.destroyed = true;
+                            if (bullet.type !== 'laser') {
+                                bullets.splice(i, 1);
+                                hit = true;
+                            }
+                        }
+                    });
+                });
+                
+                if (hit) break;
+            }
+            
+            // インベーダーの弾とシールド
+            for (let i = invaderBullets.length - 1; i >= 0; i--) {
+                const bullet = invaderBullets[i];
+                if (!bullet) continue;
+                
+                let hit = false;
+                
+                shields.forEach(shield => {
+                    if (!shield) return;
+                    shield.forEach(block => {
+                        if (!block || block.destroyed) return;
+                        if (isColliding(bullet, block)) {
+                            block.destroyed = true;
+                            invaderBullets.splice(i, 1);
+                            hit = true;
+                        }
+                    });
+                });
+                
+                if (hit) break;
+            }
+        }
+
+        function applyPowerup(type) {
+            gameState.powerup = type;
+            gameState.powerupTime = 600;
+            
+            switch (type) {
+                case 'rapid':
+                    player.fireRate = 100;
+                    break;
+                case 'shield':
+                    player.invulnerable = 180;
+                    break;
+            }
+        }
+
+        function loseLife() {
+            gameState.lives--;
+            player.invulnerable = 60;
+            createParticles(player.x + player.width/2, player.y + player.height/2, '#ff0000', 15);
+            
+            initAudio();
+            playSound(150, 0.8, 'sawtooth', 0.1);
+            
+            if (gameState.lives <= 0) {
+                endGame();
+            }
+        }
+
+        function nextWave() {
+            gameState.wave++;
+            gameState.invaderSpeed = 1 + gameState.level * 0.5;
+            gameState.invaderDirection = 1;
+            initInvaders();
+            
+            gameState.score += 500 * gameState.level;
+            
+            if (gameState.wave % 3 === 0) {
+                gameState.level++;
+                initShields();
+            }
+        }
+
+        // メインゲームループ
+        function update() {
+            if (gameState.gameOver || gameState.paused) return;
+
+            updateStars();
+            updatePlayer();
+            updateBullets();
+            updateInvaders();
+            updateUFO();
+            updatePowerups();
+            updateParticles();
+            updatePowerupTimer();
+            
+            checkCollisions();
+            createUFO();
+            
+            // 勝利条件
+            if (invaders.length === 0 || invaders.every(invader => !invader || !invader.alive)) {
+                nextWave();
+            }
+            
+            // 敗北条件
+            if (invaders.some(invader => invader && invader.alive && invader.y + invader.height >= player.y)) {
+                loseLife();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawStars();
+            drawShields();
+            drawPlayer();
+            drawInvaders();
+            drawUFO();
+            drawBullets();
+            drawPowerups();
+            drawParticles();
+            drawHUD();
+        }
+
+        function gameLoop() {
+            if (gameState.animationId) {
+                cancelAnimationFrame(gameState.animationId);
+            }
+            
+            update();
+            draw();
+            
+            gameState.animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ゲーム制御
+        function endGame() {
+            gameState.gameOver = true;
+            finalScoreElement.textContent = gameState.score.toLocaleString();
+            finalLevelElement.textContent = gameState.level;
+            gameOverElement.style.display = 'block';
+        }
+
+        function togglePause() {
+            gameState.paused = !gameState.paused;
+            pauseMenuElement.style.display = gameState.paused ? 'block' : 'none';
+        }
+
+        function restartGame() {
+            // 古いアニメーションを停止
+            if (gameState.animationId) {
+                cancelAnimationFrame(gameState.animationId);
+            }
+            
+            // ゲーム状態リセット
+            gameState = {
+                score: 0,
+                lives: 3,
+                level: 1,
+                wave: 1,
+                gameOver: false,
+                paused: false,
+                invaderSpeed: 1,
+                invaderDirection: 1,
+                lastShot: 0,
+                powerup: null,
+                powerupTime: 0,
+                scaleX: gameState.scaleX,
+                scaleY: gameState.scaleY,
+                animationId: null
+            };
+            
+            // プレイヤーリセット
+            player.speed = 6;
+            player.fireRate = 200;
+            
+            // 配列を安全にクリア
+            bullets.length = 0;
+            invaderBullets.length = 0;
+            particles.length = 0;
+            powerups.length = 0;
+            ufo = null;
+            
+            // UI非表示
+            gameOverElement.style.display = 'none';
+            pauseMenuElement.style.display = 'none';
+            
+            // 初期化
+            initPlayer();
+            initInvaders();
+            initShields();
+            initStars();
+            
+            // ゲーム再開
+            gameLoop();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('Fullscreen failed:', err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // イベントリスナー
+        document.addEventListener('keydown', (e) => {
+            initAudio();
+            keys[e.code] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+            
+            if (e.code === 'KeyP') {
+                togglePause();
+            }
+            
+            if (e.code === 'KeyR') {
+                restartGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // モバイルタッチイベント
+        function setupMobileControls() {
+            leftBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touches.left = true;
+                initAudio();
+            });
+            
+            leftBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                touches.left = false;
+            });
+            
+            rightBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touches.right = true;
+                initAudio();
+            });
+            
+            rightBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                touches.right = false;
+            });
+            
+            fireBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touches.fire = true;
+                initAudio();
+            });
+            
+            fireBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                touches.fire = false;
+            });
+            
+            pauseBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                togglePause();
+                initAudio();
+            });
+            
+            // マウスイベントも追加（デスクトップでのテスト用）
+            leftBtn.addEventListener('mousedown', () => touches.left = true);
+            leftBtn.addEventListener('mouseup', () => touches.left = false);
+            rightBtn.addEventListener('mousedown', () => touches.right = true);
+            rightBtn.addEventListener('mouseup', () => touches.right = false);
+            fireBtn.addEventListener('mousedown', () => touches.fire = true);
+            fireBtn.addEventListener('mouseup', () => touches.fire = false);
+        }
+
+        // リサイズイベント
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 100);
+        });
+
+        // ページ読み込み時の初期化
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            setupMobileControls();
+            initPlayer();
+            initInvaders();
+            initShields();
+            initStars();
+            gameLoop();
+        });
+
+        // ページが非表示になった時の一時停止
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !gameState.gameOver) {
+                gameState.paused = true;
+                pauseMenuElement.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
